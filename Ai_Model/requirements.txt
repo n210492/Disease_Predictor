@@ -5,10 +5,4 @@ scikit-learn
 xgboost
 transformers
 joblib
-huggingface_hub
-warnings
-fastapi
-pydantic  
-uvicorn
-threading
-typing
+
