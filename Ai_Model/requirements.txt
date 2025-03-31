@@ -6,4 +6,4 @@ xgboost
 transformers
 joblib
 fastapi
-
+uvicorn
