@@ -2,4 +2,5 @@ torch
 torchvision
 torchaudio
 scikit-learn
+xgboost
 
