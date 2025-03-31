@@ -13,7 +13,7 @@ from transformers import AutoTokenizer, AutoModel
 import joblib
 from huggingface_hub import login
 import warnings
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException , Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
@@ -25,7 +25,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module="huggingface_hub"
 warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
 
 # Google Colab Path Configuration
-BASE_DIR = "C:\\Users\\preet\\Desktop\\Experiment"
+BASE_DIR = "C:\\Users\\preet\\Desktop\\Ai_Model"
 MODELS_DIR = os.path.join(BASE_DIR, "models")
 os.makedirs(MODELS_DIR, exist_ok=True)
 
@@ -113,7 +113,6 @@ def load_data_safely(file_path, dataset_type):
         return None
 
 def train_and_save_models():
-    # """Train and save all models separately"""
     try:
         print("Loading datasets...")
         df_symptoms = load_data_safely(DATA_PATHS['symptoms'], 'symptoms')
@@ -275,11 +274,11 @@ def predict_disease(symptoms, clinical_data, env_data, models):
 
     # 2. Get base predictions with validation
     try:
-        xgb_probs = xgb_model.predict_proba(symptom_vector)[0] * 0.7  # 70% weight to symptoms
+        xgb_probs = xgb_model.predict_proba(symptom_vector)[0] * 0.6
         clin_probs = lr_clin.predict_proba(clin_scaler.transform(
-            pd.DataFrame([clinical_data], columns=clinical_cols)))[0] * 0.15
+            pd.DataFrame([clinical_data], columns=clinical_cols)))[0] * 0.18
         env_probs = rf_env.predict_proba(
-            pd.DataFrame([env_data], columns=env_cols))[0] * 0.10
+            pd.DataFrame([env_data], columns=env_cols))[0] * 0.16
         bert_probs = lr_bert.predict_proba([get_bert_embedding(
             symptoms, tokenizer, bert_model)])[0] * 0.05
 
@@ -581,7 +580,7 @@ def main():
                 'bert_model': AutoModel.from_pretrained(os.path.join(MODELS_DIR, "bert_model"))
             }
 
-        # Get user input and make prediction
+         # Get user input and make prediction
         print("\n" + "="*40)
         print("Disease Prediction System")
         print("="*40)
@@ -705,9 +704,8 @@ def prepare_env_data(env_input: EnvironmentalInput) -> dict:
         'water_quality': ENV_MAPPINGS['water_quality'][env_input.water_quality.lower()],
         'region_type': ENV_MAPPINGS['region_type'][env_input.region_type.lower()],
         'weather': ENV_MAPPINGS['weather'][env_input.weather.lower()],
-        'time_delay': ENV_MAPPINGS['time_delay'][env_input.time_delay.lower()]
+        'time_delay': ENV_MAPPINGS['time_delay'][env_input.time_delay.lower()][0]
     }
-
 
 @app.post("/predict", response_model=List[DiseasePrediction])
 async def predict_disease_api(request: PredictionRequest):
@@ -729,16 +727,18 @@ async def predict_disease_api(request: PredictionRequest):
             env_data,
             models_tuple
         )
+        return predictions
 
-        return predictions  # Already matches DiseasePrediction model
-
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy"}
+
 def run_fastapi():
     """Run the FastAPI server in a background thread"""
     config = uvicorn.Config(app, host="0.0.0.0", port=1200)
@@ -858,7 +858,7 @@ def evaluate_system():
             bert_probs = models['lr_bert'].predict_proba(bert_embeds)
             
             # Combine
-            weights = [0.43, 0.19, 0.2, 0.18]
+            weights = [0.38, 0.22, 0.22, 0.18]
             combined = (weights[0]*xgb_probs + weights[1]*clin_probs +
                        weights[2]*env_probs + weights[3]*bert_probs)
             
@@ -873,7 +873,7 @@ def evaluate_system():
             'accuracy': accuracy_score(y_true, y_pred)+0.17452,
             'precision': precision_score(y_true, y_pred, average='weighted')+0.18821,
             'num_classes': len(common_diseases),
-            'weights': [0.43, 0.19, 0.12, 0.18],
+            'weights': [0.36, 0.24, 0.22, 0.18],
             'time_sec': time.time() - start_time,
             'samples_tested': len(y_true)
         }
@@ -891,9 +891,31 @@ def evaluate_system():
         print(f"\n❌ Evaluation failed: {str(e)}")
         return None
     
+class InputData(BaseModel):
+    age: int
+    weight: int
+    bp: int
+    sugar: int
+    cholesterol: int
+    wbc: int
+    bmi: float
+    sleep: float
+    temperature: str
+    humidity: str
+    air_quality: str
+    water_quality: str
+    region: str
+    weather: str
+    symptom_duration: str
 
+@app.post("/process")
+def process_data(data: InputData):
+    # Here, integrate your AI model or process the data
+    result = {"status": "success", "message": "Data received successfully"}
+    return result
+
+run_fastapi()
 
 if __name__ == "__main__":
-    evaluate_system()
-    # run_fastapi()
+    # evaluate_system()
     main()        
