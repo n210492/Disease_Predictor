@@ -25,7 +25,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module="huggingface_hub"
 warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
 
 # Google Colab Path Configuration
-BASE_DIR = "C:\\Users\\preet\\Desktop\\Ai_Model"
+BASE_DIR = "https://github.com/n210492/Disease_Predictor/edit/main/Ai_Model"
 MODELS_DIR = os.path.join(BASE_DIR, "models")
 os.makedirs(MODELS_DIR, exist_ok=True)
 
